@@ -7,7 +7,7 @@ module.exports = defineConfig({
   devServer: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8002/generate_and_predict',  // Your backend URL
+        target: 'https://metro-failure-backend-code.onrender.com/generate_and_predict',  // Your backend URL
         changeOrigin: true,
         pathRewrite: {
           '^/api': ''  // Removes /api from the request
