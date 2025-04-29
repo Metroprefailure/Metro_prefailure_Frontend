@@ -69,7 +69,7 @@ export default {
       // --- END DEBUGGING LINE ---
 
       try {
-        const response = await axios.get('/api');
+        const response = await axios.get('/api/generate_and_predict');
          // --- DEBUGGING LINE ---
         console.log('API Response received:', response);
         // --- END DEBUGGING LINE ---
