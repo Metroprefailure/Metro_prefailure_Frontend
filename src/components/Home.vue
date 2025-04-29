@@ -1,37 +1,38 @@
 <template>
-  <div :class="{ 'blur-background': backgroundColorBlur }" class="home-container">
+  <div class="home-container" :class="{ 'blur-background': backgroundColorBlur }">
+    <div class="content-wrapper">
+      <h1 class="title">Metro Pre Failure Detection System</h1>
 
-    <h2 id="heading">Metro Pre-Failure Detection System</h2>
+      <p class="description">
+        Experience fewer unexpected delays with our intelligent prediction system. Using cutting-edge AI, we can anticipate potential metro failures a full day in advance. This foresight enables proactive maintenance and adjustments, working behind the scenes to ensure a smoother, more dependable travel experience for all passengers.
+      </p>
 
-    <h4 class="description">
-      Experience fewer unexpected delays with our intelligent prediction system. Using cutting-edge AI, we can anticipate potential metro failures a full day in advance. This foresight enables proactive maintenance and adjustments, working behind the scenes to ensure a smoother, more dependable travel experience for all passengers.
-    </h4>
+      <button
+        class="monitor-button"
+        :class="{ 'monitoring': isMonitoring }"
+        @click="callTriggeSimulation">
+        {{ isMonitoring ? 'Stop Simulation' : 'Start Simulation' }}
+      </button>
 
-    <button
-      class="monitor-button"
-      :style="{ backgroundColor: isMonitoring ? '#e74c3c' : '#2ecc71' }"  
-      @click="callTriggerSimulation"
-    >
-      {{ isMonitoring ? 'Stop Simulation' : 'Start Simulation' }}
-    </button>
-
-    <SensorCard
-      v-if="sensorData != null"
-      :sensorInfo="sensorData"
-      :colorStatus="toastType"
-      class="sensor-card-margin"
-    />
-
+      <transition name="fade">
+        <SensorCard
+          v-if="sensorData != null"
+          :sensorInfo="sensorData"
+          :colorStatus="toastType"
+          class="sensor-card-instance"
+        />
+      </transition>
+    </div>
   </div>
 
-  <ToastCard
-    v-if="showToast && sensorData != null"
-    :message="toastMessage"
-    :visibility="showToast"
-    :type="toastType"
-    :key="'toast-' + toastType + Date.now()"
-    :stackIndex="3"
-  />
+   <ToastCard
+      v-if="showToast && sensorData != null"
+      :message="toastMessage"
+      :visibility="showToast"
+      :type="toastType"
+      :key="resultKey + toastType + Date.now()"
+      :stackIndex="3"
+   />
 </template>
 
 <script>
@@ -47,159 +48,207 @@ export default {
   },
   data() {
     return {
-      sensorData: null,         // Holds the data received from the API for the SensorCard
-      toastMessage: null,       // Message content for the ToastCard
-      showToast: false,         // Controls the visibility of the ToastCard
-      isMonitoring: false,      // Tracks whether the monitoring simulation is active
-      toastColorTracker: null,  // Stores the segment type from the API to determine toast color
-      backgroundColorBlur: false // Controls the blur effect on the main container
+      sensorData: null,
+      toastMessage: null,
+      showToast: false,
+      isMonitoring: false,
+      toastColorTracker: null,
+      backgroundColorBlur: false,
+      resultKey: 0
     };
   },
   computed: {
-    /**
-     * Determines the type ('success' or 'error') for the ToastCard
-     * based on the prediction outcome from the API.
-     */
     toastType() {
       return this.toastColorTracker === "Pre-Failure" ? "error" : "success";
-    }
+    },
   },
   methods: {
-    /**
-     * Toggles the monitoring state and fetches data from the API.
-     * Manages the display of sensor data and toast notifications with delays.
-     */
-    async callTriggerSimulation() {
-      // Toggle the monitoring state immediately for button text/color change
-      this.isMonitoring = !this.isMonitoring;
+    async callTriggeSimulation() {
+      // --- DEBUGGING LINE ---
+      console.log('callTriggeSimulation method started!');
+      // --- END DEBUGGING LINE ---
 
-      if (this.isMonitoring) {
-        try {
-          // Make the API call
-          const response = await axios.get('/api');
+      try {
+        const response = await axios.get('/api');
+         // --- DEBUGGING LINE ---
+        console.log('API Response received:', response);
+        // --- END DEBUGGING LINE ---
 
-          // Assuming response.data has the structure:
-          // { data: {...}, prediction_message: "...", generated_segment_type: "..." }
-          const apiData = response.data;
+        const responseData = response?.data;
+        const sensorUnFilterdData = responseData ? [responseData] : [];
 
-          // Validate received data structure (optional but recommended)
-          if (!apiData || typeof apiData !== 'object' || !apiData.data || !apiData.prediction_message || !apiData.generated_segment_type) {
-              console.error("Invalid API response structure:", apiData);
-              // Handle invalid structure, maybe show an error toast
-              this.isMonitoring = false; // Revert monitoring state
-              // Optionally set an error message for a generic error toast
-              // this.toastMessage = "Error fetching data. Invalid response.";
-              // this.toastColorTracker = "ErrorState"; // Or some other indicator
-              // this.showToast = true;
-              // ... add timeout to hide error toast
-              return; // Stop further processing
-          }
+        if (sensorUnFilterdData.length > 0) {
+            const firstResult = sensorUnFilterdData[0];
+            const sensorFilteredData = firstResult?.data;
+            const toastMessage = firstResult?.prediction_message;
+            const toastColorTracker = firstResult?.generated_segment_type;
+
+            this.toastMessage = toastMessage ?? 'Status updated.';
+            this.toastColorTracker = toastColorTracker;
+            this.resultKey++;
+
+            // Toggle monitoring state AFTER data is processed
+            this.isMonitoring = !this.isMonitoring;
+             // --- DEBUGGING LINE ---
+            console.log('isMonitoring toggled to:', this.isMonitoring);
+            // --- END DEBUGGING LINE ---
 
 
-          const sensorFilteredData = apiData.data;
-          const toastMessage = apiData.prediction_message;
-          const toastColorTracker = apiData.generated_segment_type;
+            if (this.isMonitoring) {
+              this.sensorData = sensorFilteredData;
+              setTimeout(() => {
+                this.showToast = true;
+                this.backgroundColorBlur = true;
+                console.log('Showing toast and blur'); // Debug log
+              }, 1000);
 
-          // Update component state with API data
-          this.sensorData = sensorFilteredData;
-          this.toastMessage = toastMessage;
-          this.toastColorTracker = toastColorTracker;
-
-          console.log("API Data Received. Toast Message:", toastMessage, "Type:", toastColorTracker);
-
-          // Show the toast and blur background after a short delay (e.g., 2 seconds)
-          setTimeout(() => {
-            this.showToast = true;
-            this.backgroundColorBlur = true;
-          }, 2000); // 2-second delay before showing toast/blur
-
-          // Hide the toast and remove blur after another delay (e.g., 1.5 seconds later)
-          setTimeout(() => {
-            this.backgroundColorBlur = false;
-            this.showToast = false;
-             // Optionally reset toast message/type if needed after hiding
-            // this.toastMessage = null;
-            // this.toastColorTracker = null;
-          }, 3500); // 3.5 seconds total from the start (toast visible for 1.5s)
-
-        } catch (error) {
-          console.error("API call failed:", error);
-          // Handle API error (e.g., show an error toast)
-          this.isMonitoring = false; // Revert monitoring state on error
-          this.sensorData = null; // Clear sensor data on error
-          // Optionally set state for an error toast
-          // this.toastMessage = "Failed to fetch monitoring data. Please try again.";
-          // this.toastColorTracker = "ErrorState"; // Use a specific state or keep it null
-          // this.showToast = true;
-          // ... add timeout to hide error toast
+              setTimeout(() => {
+                this.backgroundColorBlur = false;
+                this.showToast = false;
+                 console.log('Hiding toast and blur'); // Debug log
+              }, 4500);
+            } else {
+              this.sensorData = null;
+              this.showToast = false;
+              this.backgroundColorBlur = false;
+               console.log('Stopped monitoring, cleared data/toast/blur'); // Debug log
+            }
+        } else {
+             console.error("API response did not contain expected data structure.");
+             this.toastMessage = 'Failed to fetch data.';
+             this.toastType = 'error';
+             this.showToast = true;
+             setTimeout(() => { this.showToast = false; }, 3000);
         }
-      } else {
-        // If monitoring is stopped, clear the sensor data
+
+      } catch (error) {
+        console.error("API call failed:", error);
+        this.toastMessage = 'Monitoring service unavailable.';
+        this.toastType = 'error';
+        this.showToast = true;
+        this.isMonitoring = false;
         this.sensorData = null;
-        // Ensure toast and blur are also cleared if stop button is clicked during the timeout phases
-        this.showToast = false;
         this.backgroundColorBlur = false;
-        console.log("Monitoring stopped by user.");
+         setTimeout(() => { this.showToast = false; }, 3000);
       }
-    }
+    },
   }
 }
 </script>
 
 <style scoped>
-/* Scoped styles apply only to this component */
+/* Removed :root variables, using direct values */
+
+/* Basic reset and font */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+/* Apply fade-in animation */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
 .home-container {
-  padding: 20px; /* Add some padding around the content */
-  text-align: center; /* Center align text elements */
-  transition: filter 0.4s ease-in-out; /* Smooth transition for blur effect */
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 90vh;
+  padding: 4rem 2rem; /* Increased padding */
+  background-color: transparent;
+  text-align: center;
+  transition: filter 0.5s ease-in-out;
+  animation: fadeIn 0.8s ease-out;
+}
+
+.content-wrapper {
+  max-width: 900px; /* Increased max-width */
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 1rem; /* Added padding */
 }
 
 .blur-background {
-  filter: blur(8px); /* Apply blur effect - adjust value as needed */
-  /* Optional: slightly dim or color the background when blurred */
-  /* background-color: rgba(200, 200, 255, 0.1); */
-  pointer-events: none; /* Prevent interaction with blurred content */
-  user-select: none; /* Prevent text selection when blurred */
+  filter: blur(8px);
 }
 
-#heading {
-  color: #003366; /* Dark blue color for the main heading */
-  margin-bottom: 15px; /* Space below the heading */
+.title {
+  color: #005f73;
+  margin-bottom: 1.5rem; /* Increased margin */
+  font-size: 2.8rem; /* Increased font size */
+  font-weight: 600;
 }
 
 .description {
-  font-size: 1.1em; /* Slightly larger font size */
-  color: #555;    /* Dark gray color for better readability */
-  max-width: 800px; /* Limit width for better readability on wide screens */
-  margin: 0 auto 25px auto; /* Center align and add space below */
-  line-height: 1.6; /* Improve line spacing */
+  /* color: var(--text-color-secondary); */
+  color: #555555; /* Direct value: Medium Grey */
+  line-height: 1.6;
+  /* Increased bottom margin and font size */
+  margin-bottom: 1.5rem;
+  font-size: 2.8rem;
+  font-weight: 600;
+}
+
+.description {
+  color: #555555;
+  line-height: 1.6;
+  margin-bottom: 3rem; /* Increased margin */
+  /* max-width: 650px; */
+  font-size: 1.3rem; /* Increased font size */
+  padding: 0 1rem; /* Added padding */
 }
 
 .monitor-button {
-  color: white; /* Text color is always white */
-  padding: 12px 25px; /* Increase padding for a larger button */
-  border-radius: 8px; /* Slightly more rounded corners */
+  background-color: #2ecc71;
+  color: white;
+  padding: 14px 30px; /* Increased padding */
+  border-radius: 8px;
   border: none;
   cursor: pointer;
-  font-size: 1.1em; /* Slightly larger font size */
-  transition: background-color 0.3s ease, transform 0.1s ease; /* Smooth transitions */
-  margin-bottom: 30px; /* Space below the button */
+  font-size: 1.2rem; /* Increased font size */
+  font-weight: 500;
+  display: inline-block;
+  visibility: visible;
+  opacity: 1;
+  transition: background-color 0.3s ease, transform 0.2s ease, box-shadow 0.3s ease;
+  box-shadow: 0 2px 5px rgba(0, 95, 115, 0.1);
+  margin-bottom: 3rem; /* Increased margin */
+}
+
+.monitor-button.monitoring {
+  /* background-color: var(--accent-color-stop); */
+  background-color: #e74c3c; /* Direct value: Red */
 }
 
 .monitor-button:hover {
-  filter: brightness(1.1); /* Slightly brighten button on hover */
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 4px 10px rgba(0, 95, 115, 0.1); /* Direct shadow color */
 }
+
 .monitor-button:active {
-    transform: scale(0.98); /* Slightly shrink button when clicked */
+  transform: translateY(0px) scale(1);
+  box-shadow: 0 2px 5px rgba(0, 95, 115, 0.1); /* Direct shadow color */
 }
 
-/* Specific background colors are handled by inline :style */
-/* .monitor-button.start { background-color: #2ecc71; } */
-/* .monitor-button.stop { background-color: #e74c3c; } */
+.sensor-card-instance {
+  width: 100%;
+  max-width: 900px; /* Increased max-width */
+  margin-top: 3rem; /* Increased margin */
+}
 
-.sensor-card-margin {
-    margin-top: 20px; /* Add space above the sensor card */
+/* Fade transition for the SensorCard */
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.5s ease;
+}
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
 }
 
 </style>
