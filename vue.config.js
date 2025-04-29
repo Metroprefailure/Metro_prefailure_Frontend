@@ -9,7 +9,7 @@ module.exports = defineConfig({
   devServer: {
     proxy: {
       '/api': {
-        target: 'https://metro-failure-backend-code.onrender.com',
+        target: 'https://metro-failure-backend-code.onrender.com/generate_and_predict',
         changeOrigin: true,
         pathRewrite: {
           '^/api': ''
