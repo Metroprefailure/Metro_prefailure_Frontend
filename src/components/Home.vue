@@ -59,7 +59,7 @@ export default{
   methods:{
     async callTriggeSimulation(){
       try {
-          let response = await axios.get('/api');
+          let response = await axios.get('/api/generate_and_predict');
           let sensorUnFilterdData = [response.data]; 
           console.log(sensorUnFilterdData)
           let sensorFilteredData=sensorUnFilterdData.at(0).data;
